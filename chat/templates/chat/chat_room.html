@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>STRANGERS ROOM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px 10px;
+            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+        }
+
+        .chat-container {
+            flex: 4; /* 80% of the container */
+            display: flex;
+            flex-direction: row-reverse;
+        }
+
+        .user-list-container {
+            flex: 1; /* 20% of the container */
+            background-color: #ddd;
+            padding: 10px;
+            overflow-y: auto;
+        }
+
+        .name-input {
+            max-width: 400px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-box {
+            flex: 1;
+            max-width: 100%;
+            margin: auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        #chat-messages {
+            max-height: 300px;
+            overflow-y: scroll;
+        }
+
+        .message {
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .user-message {
+            text-align: right;
+            background-color: #e6f7ff;
+        }
+
+        .other-message {
+            text-align: left;
+            background-color: #ccf2ff;
+        }
+
+        #user-name,
+        #user-input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #enter-chat-button,
+        #send-button,
+        #video-call-button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .user-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .user-list-item {
+            margin-bottom: 5px;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 20px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            STRANGERS ROOM
+        </div>
+        <div>
+            <button id="video-call-button" onclick="startVideoCall()" style="display: none;"><i class="fas fa-video"></i></button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="chat-container">
+            <div class="name-input" id="name-input">
+                <label for="user-name">Enter your name:</label>
+                <input type="text" id="user-name" placeholder="Your Name">
+                <button id="enter-chat-button" onclick="enterChat()">Enter Chat</button>
+            </div>
+
+            <div class="chat-box" id="chat-box">
+                <div id="chat-messages"></div>
+                <input type="text" id="user-input" placeholder="Type your message">
+                <button id="send-button" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+
+        <div class="user-list-container">
+            <h3>Users Online</h3>
+            <ul class="user-list" id="user-list"></ul>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2023 Chat Room. Developed by STRANGERS
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.1.2/simplepeer.min.js"></script>
+    
+<!-- chat_room.html -->
+
+<script>
+    let currentUser;
+    let peer;
+    const signalingSocket = new WebSocket('ws://' + window.location.host + '/ws/chat/');
+
+    signalingSocket.addEventListener('open', (event) => {
+        console.log('WebSocket connection opened:', event);
+    });
+
+    signalingSocket.addEventListener('message', (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'offer') {
+            // Handle offer from another peer
+            handleOffer(data.offer);
+        } else if (data.type === 'answer') {
+            // Handle answer from another peer
+            handleAnswer(data.answer);
+        } else if (data.type === 'ice-candidate') {
+            // Handle ICE candidate from another peer
+            handleIceCandidate(data.candidate);
+        }
+    });
+
+    function enterChat() {
+        const nameInput = document.getElementById('user-name');
+        const name = nameInput.value.trim();
+        if (name !== '') {
+            const chatBox = document.getElementById('chat-box');
+            const userNameInput = document.getElementById('user-name');
+            const userListContainer = document.querySelector('.user-list-container');
+            const videoCallButton = document.getElementById('video-call-button');
+
+            // Store the current user name
+            currentUser = name;
+
+            document.getElementById('name-input').style.display = 'none';
+            chatBox.style.display = 'block';
+            userNameInput.disabled = true;
+
+            // Display user name in the user list
+            const userList = document.getElementById('user-list');
+            const userListItem = document.createElement('li');
+            userListItem.textContent = name;
+            userListItem.className = 'user-list-item';
+            userList.appendChild(userListItem);
+
+            // Update user list in the right container
+            userListContainer.innerHTML = userList.innerHTML;
+
+            // Show video call button
+            videoCallButton.style.display = 'inline-block';
+
+            // Initialize WebRTC peer
+            peer = new SimplePeer({ initiator: true, trickle: false });
+
+            // Handle events for WebRTC peer
+            peer.on('signal', (data) => {
+                // Send the offer to the signaling server
+                signalingSocket.send(JSON.stringify({ type: 'offer', offer: data }));
+            });
+
+            peer.on('connect', () => {
+                console.log('WebRTC peer connection established');
+            });
+
+            peer.on('data', (data) => {
+                // Handle data received from the other peer
+                const chatMessages = document.getElementById('chat-messages');
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message');
+                messageElement.classList.add('other-message');
+                messageElement.textContent = `Other: ${data}`;
+                chatMessages.appendChild(messageElement);
+            });
+
+            peer.on('close', () => {
+                console.log('WebRTC peer connection closed');
+            });
+
+            peer.on('error', (err) => {
+                console.error('WebRTC peer error:', err);
+            });
+        }
+    }
+
+    function sendMessage() {
+        const userNameInput = document.getElementById('user-name');
+        const userInput = document.getElementById('user-input');
+        const chatMessages = document.getElementById('chat-messages');
+
+        if (userNameInput.value.trim() !== '' && userInput.value.trim() !== '') {
+            const message = document.createElement('div');
+            message.classList.add('message');
+
+            if (userNameInput.value.trim() === currentUser) {
+                // User's message on the right
+                message.classList.add('user-message');
+            } else {
+                // Other user's message on the left
+                message.classList.add('other-message');
+            }
+
+            message.textContent = `${userNameInput.value}: ${userInput.value}`;
+            chatMessages.appendChild(message);
+
+            // Clear input
+            userInput.value = '';
+
+            // Scroll to the bottom to show the latest message
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+
+    // Functions to handle WebRTC signaling
+    function handleOffer(offer) {
+        peer = new SimplePeer({ trickle: false });
+
+        peer.on('signal', (data) => {
+            // Send the answer to the signaling server
+            signalingSocket.send(JSON.stringify({ type: 'answer', answer: data }));
+        });
+
+        // Accept the offer
+        peer.signal(offer);
+    }
+
+    function handleAnswer(answer) {
+        // Apply the answer
+        peer.signal(answer);
+    }
+
+    function handleIceCandidate(candidate) {
+        // Add ICE candidate
+        peer.addIceCandidate(candidate)
+            .catch((error) => {
+                console.error('Error adding ICE candidate:', error);
+            });
+    }
+
+    function startVideoCall() {
+        // Open the video call window or tab
+        window.open('video.html', '_blank');
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        // Add event listener for "Enter" key
+        document.getElementById("user-input").addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        });
+    });
+</script>
+</body>
+</html>

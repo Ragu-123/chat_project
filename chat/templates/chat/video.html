@@ -1,0 +1,138 @@
+<!-- video.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Video Call</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #videoContainer {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            width: 90%;
+            height: 90vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        video {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin: 10px;
+            max-width: 100%;
+            max-height: 100%;
+            position: absolute;
+            bottom: 0;
+            right: 0;
+        }
+
+        #localVideo {
+            width: 30%;
+            height: 30%;
+        }
+
+        #remoteVideo {
+            width: 100%;
+            height: 100%;
+        }
+
+        #buttonsContainer {
+            width: 90%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="videoContainer">
+        <video id="localVideo" autoplay muted></video>
+        <video id="remoteVideo" autoplay></video>
+    </div>
+
+    <div id="buttonsContainer">
+        <button id="skipButton" onclick="skipCall()">Skip</button>
+        <button id="endButton" onclick="endCall()">End Call</button>
+    </div>
+
+    <script>
+        let localStream;
+        let remoteStream;
+        let peerConnection;
+
+        const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        async function startCall() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('localVideo').srcObject = localStream;
+
+                peerConnection = new RTCPeerConnection(configuration);
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                peerConnection.onicecandidate = event => {
+                    if (event.candidate) {
+                        // Send the candidate to the other peer through your signaling server
+                    }
+                };
+
+                const remoteStream = new MediaStream();
+                document.getElementById('remoteVideo').srcObject = remoteStream;
+
+                peerConnection.ontrack = event => {
+                    event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
+                };
+
+                // Create an offer to send to the other peer
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                // Send the offer to the other peer through your signaling server
+            } catch (error) {
+                console.error('Error starting the call:', error);
+            }
+        }
+
+        function skipCall() {
+            // Implement skipping logic here
+            // Close the current peer connection and start a new call
+            if (peerConnection) {
+                peerConnection.close();
+            }
+            startCall();
+        }
+
+        function endCall() {
+            // Implement logic to end the call
+            // Close the current peer connection, release resources, etc.
+            if (peerConnection) {
+                peerConnection.close();
+            }
+        }
+
+        window.onload = startCall;
+    </script>
+</body>
+</html>
